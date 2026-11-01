@@ -14,13 +14,27 @@ adds what the port never had:
   distances
 * Powerplay icons at console size on high resolutions, motion blur matched to 60 fps, optional
   vignette, anisotropic filtering, internal render resolution independent of the quality option
-* Optional extras (off by default): all tracks, events and cars selectable, the PC version's cheat
-  code bonus content, a boost on X and a full power play bar on LS+RS
+* **Extras nobody else has** (off by default, one line each in the INI) — see below
 
 No game files are modified at runtime, and the game's code is not changed either: everything works
 through the game's own data, after checking the expected bytes. The game's copy protection
 (SecuROM) stays fully in place, see
 [Copy protection](#copy-protection). You need your own copy of the game.
+
+## ⚡ Extras: Boost, Power Play on demand, everything unlocked
+
+Split/Second never had a boost. Now it does — and it feels like it belongs there.
+
+| | What it does | INI |
+|---|---|---|
+| 🚀 **Boost** | Hold **X** and your car surges forward along its heading, up to 324 km/h. The motion blur swells with it (3× by default) and eases off when you let go, so speed *feels* like speed. Works only while driving forward, never in the pause menu. | `Boost=1` |
+| 💥 **Full Power Play bar** | Press **LS + RS** (both sticks) and the power play bar is full: drop a building on the leader whenever you like. | `PowerBarFill=1` |
+| 🏁 **Everything unlocked** | All tracks, events, episodes, game modes and cars selectable from the start, using the game's own switches. Your profile is not changed; set it back to 0 and everything is as you earned it. | `UnlockAll=1` |
+| 🎁 **Bonus content** | The extras the PC version hid behind cheat codes: the **Expressway** track, the Cobretti SlipStream, the retailer branded cars and the Euro livery pack. | `BonusContent=1` |
+
+Tune the boost with `BoostAcceleration` (m/s², default 15 ≈ 1.5 g), `BoostMaxSpeed` (m/s, default 90)
+and `BoostMotionBlur` (1–5). Like everything else here, the extras only change game data, never game
+code, so they are safe with the copy protection.
 
 > **Compatibility: Steam version only.** Developed and tested exclusively with the Steam release
 > (`SplitSecond.exe` 1.0.0.1, app 297860) on Windows 11. The retail DVD version
