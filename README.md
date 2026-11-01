@@ -21,19 +21,20 @@ through the game's own data, after checking the expected bytes. The game's copy 
 (SecuROM) stays fully in place, see
 [Copy protection](#copy-protection). You need your own copy of the game.
 
-## ⚡ Extras: Boost, Power Play on demand, everything unlocked
+## Extras: Boost, Power Play on demand, everything unlocked
 
 Split/Second never had a boost. Now it does — and it feels like it belongs there.
 
 | | What it does | INI |
 |---|---|---|
-| 🚀 **Boost** | Hold **X** and your car surges forward along its heading, up to 324 km/h. The motion blur swells with it (3× by default) and eases off when you let go, so speed *feels* like speed. Works only while driving forward, never in the pause menu. | `Boost=1` |
-| 💥 **Full Power Play bar** | Press **LS + RS** (both sticks) and the power play bar is full: drop a building on the leader whenever you like. | `PowerBarFill=1` |
-| 🏁 **Everything unlocked** | All tracks, events, episodes, game modes and cars selectable from the start, using the game's own switches. Your profile is not changed; set it back to 0 and everything is as you earned it. | `UnlockAll=1` |
-| 🎁 **Bonus content** | The extras the PC version hid behind cheat codes: the **Expressway** track, the Cobretti SlipStream, the retailer branded cars and the Euro livery pack. | `BonusContent=1` |
+| **Boost** | Hold **X** and your car surges forward along its heading, up to 324 km/h. The motion blur swells with it (3× by default) and eases off when you let go, so speed *feels* like speed. Works only while driving forward, never in the pause menu. | `Boost=1` |
+| **AI boost** *(experimental)* | The AI cars boost too, in bursts while they are behind you or not far ahead, so the field stays tight. Three levels from *easy* to *hard*, on the straights only or everywhere, and a **chaos mode** (`AIBoostChaos=1`) where every AI car boosts all the time. Turn it off with one line if it misbehaves. | `AIBoost=1` |
+| **Full Power Play bar** | Press **LS + RS** (both sticks) and the power play bar is full: drop a building on the leader whenever you like. | `PowerBarFill=1` |
+| **Everything unlocked** | All tracks, events, episodes, game modes and cars selectable from the start, using the game's own switches. Your profile is not changed; set it back to 0 and everything is as you earned it. | `UnlockAll=1` |
+| **Bonus content** | The extras the PC version hid behind cheat codes: the **Expressway** track, the Cobretti SlipStream, the retailer branded cars and the Euro livery pack. | `BonusContent=1` |
 
 Tune the boost with `BoostAcceleration` (m/s², default 15 ≈ 1.5 g), `BoostMaxSpeed` (m/s, default 90)
-and `BoostMotionBlur` (1–5). Like everything else here, the extras only change game data, never game
+and `BoostMotionBlur` (1–5), the AI boost with `AIBoostLevel`, `AIBoostUnlimited`, `AIBoostStraightOnly` or simply `AIBoostChaos`. Like everything else here, the extras only change game data, never game
 code, so they are safe with the copy protection.
 
 > **Compatibility: Steam version only.** Developed and tested exclusively with the Steam release
@@ -71,7 +72,7 @@ PS3 icons.
 * LT and RT get their own axes; the 360 preset is adjusted (throttle RT, brake LT).
 * The virtual pads come first in the device list, so the game's joystick index matches the
   XInput slot it rumbles.
-* The prompt bar shows Ⓐ Ⓑ Ⓧ Ⓨ Start (or ✕ ○ □ △) while the pad is the device in use and
+* The prompt bar shows Ⓐ Ⓑ Ⓧ Ⓨ Start (or ○ □ △) while the pad is the device in use and
   switches back to key captions as soon as a key is pressed. The title screen reads
   "Press START" instead of "Press ENTER" (any language). The controls screen names pad inputs
   A/B/X/Y/LB/RB/LT/RT/LS…/RS… instead of "Button 1" or "Z rotation".
@@ -199,6 +200,11 @@ The one exception is `RenderScale` set to a number (see Known limitations).
 | `BoostMaxSpeed` | 90 | No boost above this speed, m/s (10–200; 90 = 324 km/h). |
 | `BoostMotionBlur` | 3.0 | Motion blur multiplier at full boost (1–5). |
 | `PowerBarFill` | 0 | 1 = LS+RS (both sticks pressed) fills player 1's power play bar. |
+| `AIBoost` | 0 | Experimental: 1 = AI cars boost in bursts while behind player 1 or not far ahead. |
+| `AIBoostLevel` | 2 | 1 easy (0.8× your boost, 3 s tank, up to 30 m ahead), 2 normal (1×, 5 s, about once a second, 60 m), 3 hard (1.3×, 8 s, almost constantly, 150 m). |
+| `AIBoostUnlimited` | 0 | 1 = the AI's boost tank never empties (chaos mode). |
+| `AIBoostStraightOnly` | 1 | 1 = AI boosts only on straights at speed, 0 = anywhere while driving forward. |
+| `AIBoostChaos` | 0 | 1 = chaos mode: level 3, endless tank, anywhere, also far ahead of you. Overrides the three keys above while set. |
 | `[Debug] PatchMask` | 0xFFFFFFFF | Development: bit mask of the patches that may be applied (`PATCH_*` in `src/common.h`). |
 
 ## Known limitations

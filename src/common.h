@@ -35,6 +35,11 @@ struct Config {
     float boostMaxSpeed;     // m/s, boost only below this speed
     float boostMotionBlur;   // motion blur multiplier at full boost
     bool  powerFill;         // LS+RS: power bar full
+    bool  aiBoost;           // experimental: AI cars boost
+    int   aiBoostLevel;      // 1 easy, 2 normal, 3 hard
+    bool  aiBoostUnlimited;  // the tank never empties
+    bool  aiBoostStraightOnly; // only on straights at speed
+    bool  aiBoostChaos;      // hard, unlimited, anywhere, also when far ahead (overrides the three above)
     unsigned patchMask;      // PATCH_* bits that may be applied (development, to bisect side effects)
 };
 
@@ -43,7 +48,7 @@ enum PatchBits {
     PATCH_FRAMERATE = 0x10, PATCH_STREAMPOOL = 0x20, PATCH_ICONSIZE = 0x40, PATCH_MOTIONBLUR = 0x80,
     PATCH_RENDERSCALE = 0x100, PATCH_PADNAMES = 0x200, PATCH_LOD = 0x400, PATCH_D3D = 0x800,
     PATCH_AUDIODIAG = 0x1000, PATCH_VIGNETTE = 0x2000,
-    PATCH_UNLOCK = 0x4000, PATCH_SAVEDIAG = 0x8000, PATCH_ROUTEMARKER = 0x10000, PATCH_BOOST = 0x20000,
+    PATCH_UNLOCK = 0x4000, PATCH_SAVEDIAG = 0x8000, PATCH_ROUTEMARKER = 0x10000, PATCH_BOOST = 0x20000, PATCH_AIBOOST = 0x40000,
     PATCH_ALL = 0xFFFFFFFF
 };
 

@@ -100,6 +100,18 @@ static void LoadConfig()
     g_cfg.bonusContent = GetPrivateProfileIntA("Game", "BonusContent", 0, ini) != 0;
     g_cfg.boost = GetPrivateProfileIntA("Game", "Boost", 0, ini) != 0;
     g_cfg.powerFill = GetPrivateProfileIntA("Game", "PowerBarFill", 0, ini) != 0;
+    g_cfg.aiBoost = GetPrivateProfileIntA("Game", "AIBoost", 0, ini) != 0;
+    g_cfg.aiBoostLevel = GetPrivateProfileIntA("Game", "AIBoostLevel", 2, ini);
+    if (g_cfg.aiBoostLevel < 1) g_cfg.aiBoostLevel = 1;
+    if (g_cfg.aiBoostLevel > 3) g_cfg.aiBoostLevel = 3;
+    g_cfg.aiBoostUnlimited = GetPrivateProfileIntA("Game", "AIBoostUnlimited", 0, ini) != 0;
+    g_cfg.aiBoostStraightOnly = GetPrivateProfileIntA("Game", "AIBoostStraightOnly", 1, ini) != 0;
+    g_cfg.aiBoostChaos = GetPrivateProfileIntA("Game", "AIBoostChaos", 0, ini) != 0;
+    if (g_cfg.aiBoostChaos) {
+        g_cfg.aiBoostLevel = 3;
+        g_cfg.aiBoostUnlimited = true;
+        g_cfg.aiBoostStraightOnly = false;
+    }
     {
         char buf[32];
         GetPrivateProfileStringA("Game", "BoostAcceleration", "15", buf, sizeof(buf), ini);

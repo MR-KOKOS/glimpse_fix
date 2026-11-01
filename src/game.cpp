@@ -592,7 +592,7 @@ void OnInputFrame()
     }
     if (s_knownBuild && g_cfg.fixIconSize && (g_cfg.patchMask & PATCH_ICONSIZE)) FixPowerplayIconSize();
     if (s_knownBuild && (g_cfg.patchMask & PATCH_UNLOCK)) ApplyUnlocks();
-    if (s_knownBuild && (g_cfg.boost || g_cfg.powerFill) && (g_cfg.patchMask & PATCH_BOOST)) BoostTick();
+    if (s_knownBuild && (g_cfg.boost || g_cfg.powerFill || g_cfg.aiBoost) && (g_cfg.patchMask & PATCH_BOOST)) BoostTick();
     if (g_cfg.log && s_knownBuild) WatchVmContexts();
     if (g_cfg.log && (g_cfg.patchMask & PATCH_SAVEDIAG)) WatchSaveFiles();
     if (g_cfg.log) {
