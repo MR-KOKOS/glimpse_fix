@@ -101,24 +101,14 @@ void PatchPadNames()
 // Sector streaming pool in MB (tweakable "Sectors/Streaming/d; Memory Pool MB", 57 = the console
 // budget). Once it is full the streamer evicts the high mips and props and the world falls back
 // to blurry or flat textures. Level data rewrites the tweakable before the pool is created
-// (0x7C6140), so the read at 0x7C654F goes through a stub that takes the larger of the level's
-// value and ours. More pool needs the 4 GB address space (LAA).
+// (0x7C6140, read at 0x7C654F). Patching that read set off SecuROM's integrity checks, so instead the
+// tweakable's record ([0xD389E4]: vtable 0xBB2498, +4 variable, +8/+0xC range) is pointed at a
+// variable of ours: the level's value lands there, the real one keeps the configured size.
+// More pool needs the 4 GB address space (LAA).
 static int* const kStreamPoolMB = (int*)0x00D389E0;
-static int s_streamPoolMB;     // configured size
+static void* const* const kStreamPoolRecord = (void* const*)0x00D389E4;
+static int s_streamPoolMB;       // configured size
 static int s_levelStreamPoolMB;  // what the level asked for, for the log
-
-__declspec(naked) static void Stub_ReadStreamPool()
-{
-    __asm {
-        mov eax, dword ptr ds:[0x00D389E0]
-        mov s_levelStreamPoolMB, eax
-        cmp eax, s_streamPoolMB
-        jge done
-        mov eax, s_streamPoolMB
-    done:
-        ret
-    }
-}
 
 static void RaiseStreamPool()
 {
@@ -129,15 +119,16 @@ static void RaiseStreamPool()
         Log("no large address space (exe without LAA flag), stream pool stays at %d MB", *kStreamPoolMB);
         return;
     }
-    if (!BytesMatch((void*)0x007C654F, "A1E089D300")) {
-        Log("stream pool read not recognised, left alone");
+    DWORD* record = (DWORD*)*kStreamPoolRecord;
+    if (!record || IsBadWritePtr(record, 16) || record[0] != 0x00BB2498 || record[1] != (DWORD)kStreamPoolMB) {
+        Log("stream pool tweakable not recognised, left alone");
         return;
     }
     s_streamPoolMB = g_cfg.streamPoolMB;
-    BYTE call[5] = { 0xE8 };
-    *(DWORD*)(call + 1) = (DWORD)Stub_ReadStreamPool - (0x007C654F + 5);
-    WriteMemory((void*)0x007C654F, call, sizeof(call));
-    Log("stream pool at least %d MB", s_streamPoolMB);
+    s_levelStreamPoolMB = *kStreamPoolMB;
+    record[1] = (DWORD)&s_levelStreamPoolMB;
+    if (*kStreamPoolMB < s_streamPoolMB) *kStreamPoolMB = s_streamPoolMB;
+    Log("stream pool %d MB", *kStreamPoolMB);
 }
 
 // ---------------------------------------------------------------- powerplay icon size
@@ -175,7 +166,7 @@ static void FixPowerplayIconSize()
     float* scales = (float*)(p + 0x214);  // +0x214, +0x218
     int width = *(int*)(p + 0x2B0);
     if (width <= 0) return;
-    FixRouteMarkerSize(width);
+    if (g_cfg.patchMask & PATCH_ROUTEMARKER) FixRouteMarkerSize(width);
     if (p == s_params && scales[0] == s_written[0] && scales[1] == s_written[1]) return;  // done
     float factor = width / 1280.0f;
     s_params = p;
@@ -265,6 +256,34 @@ static void ScalePowerplayDrawDists()
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
     if (scaled) Log("powerplay draw distances: %d scaled", scaled);
+}
+
+// ---------------------------------------------------------------- unlocks
+
+// The game's own switches, read whenever a menu asks whether something is locked; nothing is written
+// to the profile. UI tweakables (as the QA menu 0x4DC520 sets them): all game modes and tracks in
+// quick play (0x4851C0), episodes, events and vehicles. PCcheat tweakables: the extras the PC port
+// unlocked with cheat codes, among them the Expressway track (Downtown route B, 0x4851C0).
+static BYTE* const kUnlockAll[] = {
+    (BYTE*)0x00D6FC54,  // UI/All Gamemodes Unlocked
+    (BYTE*)0x00D6FBA0,  // UI/Episode Select/All Episodes Unlocked
+    (BYTE*)0x00D7D978,  // UI/Events Select/All Events Unlocked
+    (BYTE*)0x00D6F8F0,  // UI/Vehicle Select/All Vehicles Unlocked
+};
+static BYTE* const kBonusContent = (BYTE*)0x00D6C49C;  // PCcheat;Cobretti SlipStream .. Euro Livery Pack, 8 bytes apart
+static const int kBonusCount = 10;
+
+static void ApplyUnlocks()
+{
+    static bool logged;
+    if (g_cfg.unlockAll)
+        for (BYTE* b : kUnlockAll) *b = 1;
+    if (g_cfg.bonusContent)
+        for (int i = 0; i < kBonusCount; i++) kBonusContent[i * 8] = 1;
+    if (!logged && (g_cfg.unlockAll || g_cfg.bonusContent)) {
+        logged = true;
+        Log("unlocks: all=%d bonus=%d", g_cfg.unlockAll, g_cfg.bonusContent);
+    }
 }
 
 // ---------------------------------------------------------------- rumble
@@ -572,7 +591,10 @@ void OnInputFrame()
         }
     }
     if (s_knownBuild && g_cfg.fixIconSize && (g_cfg.patchMask & PATCH_ICONSIZE)) FixPowerplayIconSize();
+    if (s_knownBuild && (g_cfg.patchMask & PATCH_UNLOCK)) ApplyUnlocks();
+    if (s_knownBuild && (g_cfg.boost || g_cfg.powerFill) && (g_cfg.patchMask & PATCH_BOOST)) BoostTick();
     if (g_cfg.log && s_knownBuild) WatchVmContexts();
+    if (g_cfg.log && (g_cfg.patchMask & PATCH_SAVEDIAG)) WatchSaveFiles();
     if (g_cfg.log) {
         // what the tweakables and the renderer look like while playing (they may be reloaded per level)
         static DWORD last;
@@ -585,7 +607,7 @@ void OnInputFrame()
                 *(int*)0x00D0F7E8,
                 rr ? *(int*)(rr + 0x4C) : -1, rr ? *(int*)(rr + 0x50) : -1, *(int*)0x00D56648, *(int*)0x00D5664C,
                 *(float*)0x00D38A90, *(float*)0x00D38A98, *(float*)0x00D38AA0, s_levelStreamPoolMB,
-                s_levelStreamPoolMB > s_streamPoolMB ? s_levelStreamPoolMB : s_streamPoolMB);
+                *kStreamPoolMB);
         }
     }
     if (g_cfg.log) AudioDiagTick();

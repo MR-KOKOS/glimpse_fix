@@ -96,11 +96,27 @@ static void LoadConfig()
     }
     g_cfg.vignette = GetPrivateProfileIntA("Game", "Vignette", 0, ini) != 0;
     g_cfg.popInFix = GetPrivateProfileIntA("Game", "PopInFix", 1, ini) != 0;
+    g_cfg.unlockAll = GetPrivateProfileIntA("Game", "UnlockAll", 0, ini) != 0;
+    g_cfg.bonusContent = GetPrivateProfileIntA("Game", "BonusContent", 0, ini) != 0;
+    g_cfg.boost = GetPrivateProfileIntA("Game", "Boost", 0, ini) != 0;
+    g_cfg.powerFill = GetPrivateProfileIntA("Game", "PowerBarFill", 0, ini) != 0;
+    {
+        char buf[32];
+        GetPrivateProfileStringA("Game", "BoostAcceleration", "15", buf, sizeof(buf), ini);
+        float a = (float)atof(buf);
+        g_cfg.boostAcceleration = a < 1.0f ? 1.0f : a > 100.0f ? 100.0f : a;
+        GetPrivateProfileStringA("Game", "BoostMaxSpeed", "90", buf, sizeof(buf), ini);
+        float v = (float)atof(buf);
+        g_cfg.boostMaxSpeed = v < 10.0f ? 10.0f : v > 200.0f ? 200.0f : v;
+        GetPrivateProfileStringA("Game", "BoostMotionBlur", "3.0", buf, sizeof(buf), ini);
+        float m = (float)atof(buf);
+        g_cfg.boostMotionBlur = m < 1.0f ? 1.0f : m > 5.0f ? 5.0f : m;
+    }
     g_cfg.anisotropy = GetPrivateProfileIntA("Game", "Anisotropy", 16, ini);
     if (g_cfg.anisotropy > 16) g_cfg.anisotropy = 16;
     {
         char buf[32];
-        GetPrivateProfileStringA("Debug", "PatchMask", "0xFFFF", buf, sizeof(buf), ini);
+        GetPrivateProfileStringA("Debug", "PatchMask", "0xFFFFFFFF", buf, sizeof(buf), ini);
         g_cfg.patchMask = strtoul(buf, NULL, 0);
         if (g_cfg.patchMask != PATCH_ALL) Log("patch mask 0x%X", g_cfg.patchMask);
     }
@@ -199,7 +215,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, LPVOID)
         DisableThreadLibraryCalls(inst);
         InitializeCriticalSection(&s_logLock);
         LoadConfig();
-        if ((g_cfg.log || g_cfg.anisotropy > 1) && (g_cfg.patchMask & PATCH_D3D)) InstallD3DHooks();
+        if ((g_cfg.log || g_cfg.anisotropy > 1 || g_cfg.frameRate == 60) && (g_cfg.patchMask & PATCH_D3D)) InstallD3DHooks();
     }
     return TRUE;
 }

@@ -27,12 +27,13 @@ static void __fastcall Hook_MotionBlurRender(BYTE* self, void*, void* a, void* b
             Log("motion blur: enabled=%d amount=%.3f level=%d quality=%d", state ? state[8] : -1, amount ? *amount : -1.0f,
                 params ? *(int*)(params + 0x20) : -1, *(int*)0x00D0F7E8);
     }
-    if (!amount || s_blurScale == 1.0f) {
+    float scale = s_blurScale * BoostBlurScale();
+    if (!amount || scale == 1.0f) {
         s_origMotionBlur(self, a, b, c, d, e);
         return;
     }
     float stock = *amount;
-    *amount = stock * s_blurScale;
+    *amount = stock * scale;
     s_origMotionBlur(self, a, b, c, d, e);
     *amount = stock;
 }
@@ -40,7 +41,7 @@ static void __fastcall Hook_MotionBlurRender(BYTE* self, void*, void* a, void* b
 void PatchMotionBlur()
 {
     s_blurScale = g_cfg.motionBlurStrength * (g_cfg.frameRate == 60 ? 2.0f : 1.0f);
-    if (s_blurScale == 1.0f && !g_cfg.log) return;
+    if (s_blurScale == 1.0f && !g_cfg.log && !g_cfg.boost) return;
     if (memcmp(kMotionBlurRender, "\x83\xEC\x68\x57\x8B\xF9", 6) || *kMotionBlurSlot != kMotionBlurRender) {
         Log("motion blur pass not recognised");
         return;

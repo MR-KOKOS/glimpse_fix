@@ -28,6 +28,13 @@ struct Config {
     float lodDistanceScale;  // environment, particle and powerplay draw distances
     bool  vignette;          // keep the cameras' screen edge darkening
     bool  popInFix;          // ignore the sectors' precomputed visibility lists (distance and frustum only)
+    bool  unlockAll;         // all tracks, events, episodes, game modes and vehicles selectable
+    bool  bonusContent;      // the PC cheat code extras: Expressway track, branded cars, liveries
+    bool  boost;             // X held: extra acceleration for player 1
+    float boostAcceleration; // m/s^2
+    float boostMaxSpeed;     // m/s, boost only below this speed
+    float boostMotionBlur;   // motion blur multiplier at full boost
+    bool  powerFill;         // LS+RS: power bar full
     unsigned patchMask;      // PATCH_* bits that may be applied (development, to bisect side effects)
 };
 
@@ -35,7 +42,9 @@ enum PatchBits {
     PATCH_TRIGGERS = 0x1, PATCH_RUMBLE = 0x2, PATCH_PROMPTBAR = 0x4, PATCH_TITLETEXT = 0x8,
     PATCH_FRAMERATE = 0x10, PATCH_STREAMPOOL = 0x20, PATCH_ICONSIZE = 0x40, PATCH_MOTIONBLUR = 0x80,
     PATCH_RENDERSCALE = 0x100, PATCH_PADNAMES = 0x200, PATCH_LOD = 0x400, PATCH_D3D = 0x800,
-    PATCH_AUDIODIAG = 0x1000, PATCH_VIGNETTE = 0x2000, PATCH_ALL = 0xFFFF
+    PATCH_AUDIODIAG = 0x1000, PATCH_VIGNETTE = 0x2000,
+    PATCH_UNLOCK = 0x4000, PATCH_SAVEDIAG = 0x8000, PATCH_ROUTEMARKER = 0x10000, PATCH_BOOST = 0x20000,
+    PATCH_ALL = 0xFFFFFFFF
 };
 
 // Shared memory layout for TestFeed=1, mapping name kTestFeedName
@@ -74,6 +83,7 @@ void AudioDiagTick();
 
 // framerate.cpp
 void PatchFrameRate();
+void FramePace();  // after every Present: 60 fps pacing of the main loop
 
 // profile.cpp
 void InstallProfiler();
@@ -82,6 +92,13 @@ void ProfilerTick();
 // postfx.cpp
 void PatchMotionBlur();
 void PatchVignette();
+
+// boost.cpp
+void BoostTick();        // per input frame: boost on X, power bar fill on LS+RS
+float BoostBlurScale();  // motion blur multiplier while boosting (1 = none)
+
+// savediag.cpp
+void WatchSaveFiles();  // Log=1: log every change of the profile files
 
 // renderscale.cpp
 void PatchRenderScale();

@@ -1,5 +1,5 @@
 // Split/Second PC fix - Direct3D 9 hooks: device creation log and back buffer capture (Log=1),
-// forced anisotropic filtering (Anisotropy=2..16)
+// forced anisotropic filtering (Anisotropy=2..16), 60 fps pacing after Present (framerate.cpp)
 #include "common.h"
 #include <d3d9.h>
 #include <string.h>
@@ -134,7 +134,9 @@ static HRESULT STDMETHODCALLTYPE Diag_Present(IDirect3DDevice9* dev, const RECT*
             feed->shotRequest = 0;
         }
     }
-    return s_origPresent(dev, src, dst, wnd, dirty);
+    HRESULT hr = s_origPresent(dev, src, dst, wnd, dirty);
+    FramePace();
+    return hr;
 }
 
 static HRESULT STDMETHODCALLTYPE Diag_CreateDevice(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE type, HWND focus, DWORD flags,
@@ -149,7 +151,7 @@ static HRESULT STDMETHODCALLTYPE Diag_CreateDevice(IDirect3D9* d3d, UINT adapter
     if (SUCCEEDED(hr) && out && *out) {
         Log("available texture memory %u MB", (*out)->GetAvailableTextureMem() >> 20);
         void** vt = *(void***)*out;
-        if (g_cfg.log) PatchVtable(vt, 17, (void*)Diag_Present, (void**)&s_origPresent);
+        if (g_cfg.log || g_cfg.frameRate == 60) PatchVtable(vt, 17, (void*)Diag_Present, (void**)&s_origPresent);
         if (g_cfg.anisotropy > 1) {
             PatchVtable(vt, 65, (void*)Hook_SetTexture, (void**)&s_origSetTexture);
             PatchVtable(vt, 69, (void*)Hook_SetSamplerState, (void**)&s_origSetSamplerState);

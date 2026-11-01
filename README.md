@@ -14,9 +14,12 @@ adds what the port never had:
   distances
 * Powerplay icons at console size on high resolutions, motion blur matched to 60 fps, optional
   vignette, anisotropic filtering, internal render resolution independent of the quality option
+* Optional extras (off by default): all tracks, events and cars selectable, the PC version's cheat
+  code bonus content, a boost on X and a full power play bar on LS+RS
 
-No game files are modified at runtime; everything is patched in memory after checking the
-expected bytes. The game's copy protection (SecuROM) stays fully in place, see
+No game files are modified at runtime, and the game's code is not changed either: everything works
+through the game's own data, after checking the expected bytes. The game's copy protection
+(SecuROM) stays fully in place, see
 [Copy protection](#copy-protection). You need your own copy of the game.
 
 > **Compatibility: Steam version only.** Developed and tested exclusively with the Steam release
@@ -63,12 +66,19 @@ PS3 icons.
 
 The game simulates in fixed 1/60 s ticks but its main loop renders every 1/30 s and hands two
 ticks to each frame; physics and race logic use `dt = ticks × 1/60`. The only per-frame code that
-assumes a 1/30 s frame is the AI steering controller (once per car per frame). Speeding up just
-the main loop makes the AI react twice as fast — the reason the old 60 fps patch made AI cars
-crash constantly.
+assumes a 1/30 s frame is the AI player update (once per car per frame; its steering controller
+limits the steering change per call by 1/30 s). Speeding up just the main loop makes the AI react
+twice as fast — the reason the old 60 fps patch made AI cars crash constantly.
 
-* Main loop period 1/60 s with one tick per frame; the AI steering controller gets the 1/60 s
-  frame time; the limiter waits on a high resolution timer instead of `Sleep` (15.6 ms steps).
+The loop adds the measured frame time to an accumulator, takes two ticks per 1/30 s in it, sleeps
+away the rest and clamps the ticks to a "max ticks" tweakable. All of that is plain data, read only
+by the loop, so 60 fps work without changing its code:
+
+* After every presented frame (Direct3D `Present`) the fix waits for the next 1/60 s on a high
+  resolution timer, sets "max ticks" to the number of 1/60 s steps that have passed (1, more after
+  a slow frame) and tops the accumulator up so the loop finds that many ticks and never sleeps.
+* Each AI car is updated every other frame and drives on its last inputs in between, exactly as
+  at 30 fps with two ticks per update (the AI player's vtable slot).
 * Above 60 fps would need render interpolation, since the ticks are fixed at 1/60 s.
 
 ### Blurry / missing textures and props
@@ -80,8 +90,9 @@ process has 2 GB of address space, and at 4K only about 500 MB of it is left, so
 only grow with the flag set.
 
 * With the flag, the pool is raised to 512 MB (configurable). Without it, the pool stays stock.
-  Levels write their own value into the pool tweakable before the pool is created, so the one
-  read of it takes the larger of the level's value and the configured one.
+  Levels write their own value (57) into the pool tweakable before the pool is created; the
+  tweakable's record is pointed at a variable of the fix, so the level's value lands there and the
+  real one keeps the configured size.
 
 ### Pop-in
 
@@ -118,27 +129,32 @@ The Steam executable is protected with SecuROM, which decrypts the game at runti
 of it in its own virtual machine. **This project does not remove, bypass or weaken it**; it is
 built to work alongside it.
 
-Why this matters: SecuROM periodically checks the integrity of parts of the game code. Patching
-code in those regions does not fail at once. From about four and a half minutes after launch its
-check threads (every ~22 s) stop releasing their VM contexts; once all ten are taken, everything
-that needs protected code waits forever. The music stops and the game hangs after the finish
-line. This is also the likely reason why earlier 60 fps patches and mods got a reputation for
-"breaking" the game.
+Why this matters: SecuROM checks the integrity of the game code at fixed times after launch, each
+time a different part of it (about 4½, 5½, 6½ and 17 minutes in). A changed instruction does not
+fail at once. Once a check finds one, its check threads (every ~22 s) stop releasing their VM
+contexts; once all ten are taken, everything that needs protected code waits forever. The music
+stops and the game hangs, typically after the finish line. This is also the likely reason why
+earlier 60 fps patches and mods got a reputation for "breaking" the game: they patch the main
+loop, and that part is checked about 6½ minutes after launch.
 
-How the fix avoids it:
+How the fix avoids it: **no game code is changed at all.** Everything works through
 
-* Code is patched only where the checks do not look: the main loop and the AI steering step
-  (60 fps) and the single read of the streaming pool size.
-* Everything else works without touching game code: values in the game's data (tweakables,
-  loaded HUD parameters, powerplay distance records, debug switches), swapped vtable slots for
-  the motion blur and grading passes, the import table entry of `XInputSetState`, the
-  read-only icon path strings of the prompt bar, the Direct3D device's vtable, and calls into the
-  game's own functions (dictionary lookup, Scaleform `Invoke`/`SetVariable`) from the input poll.
-* The prompt bar glyphs, the title screen text and the icon size were first done with code hooks
-  and set off exactly this hang, so they were rebuilt this way.
+* values in the game's data: tweakables and their records (frame pacing, streaming pool, LOD and
+  streaming distances, debug and unlock switches), loaded HUD parameters, powerplay distance
+  records, the main loop's accumulator, the power bar and the player car's chassis velocity,
+* swapped vtable slots (motion blur and grading passes, AI player update), the import table entry
+  of `XInputSetState`, read-only strings and constants (prompt bar icon paths, route marker size),
+* the Direct3D device's vtable, and calls into the game's own functions (dictionary lookup,
+  Scaleform `Invoke`/`SetVariable`) from the input poll.
+
+The prompt bar glyphs, the title screen text, the icon size, the 60 fps and the streaming pool were
+first done with code patches and each set off exactly this hang, so they were rebuilt this way.
+The one exception is `RenderScale` set to a number (see Known limitations).
+
 * `[Debug] PatchMask` (bits as in `src/common.h`) switches individual patches off, to find out
   which one causes a side effect. With `Log=1` the log also shows the number of SecuROM VM
-  contexts in use whenever it changes.
+  contexts in use whenever it changes; a check that found something shows up as two more
+  contexts (`8B03 8AF3`) every ~22 s.
 
 ## SplitSecondPad.ini
 
@@ -151,7 +167,7 @@ How the fix avoids it:
 | `TriggerDeadzone` | 0.05 | Trigger deadzone (0–1). |
 | `RumbleStrength` | 1.0 | 0 = off. |
 | `ButtonGlyphs` | xbox | `xbox`, `playstation` or `keyboard` (never switch). |
-| `Log` | 0 | 1 = write `SplitSecondPad.log` (Direct3D device, FMOD events, music state). |
+| `Log` | 0 | 1 = write `SplitSecondPad.log` (Direct3D device, FMOD events, music state, SecuROM VM contexts, every change of the profile `.sav` files). |
 | `TestFeed`, `Profile` | 0 | Development only: pad state from shared memory (`tools/padfeed.py`), call counters. |
 | `[Game] FrameRate` | 60 | 30 = stock. |
 | `StreamPoolMB` | 512 | Streaming pool in MB, 0 = stock (57). Only used when the exe has the LAA flag. |
@@ -162,7 +178,14 @@ How the fix avoids it:
 | `LodDistanceScale` | 2.0 | Multiplier for LOD, streaming, particle, debris and powerplay distances (0.5–8). |
 | `PopInFix` | 1 | Ignore the sectors' precomputed visibility lists. 0 = stock. |
 | `Vignette` | 0 | 1 = keep the cameras' darkened screen edges. |
-| `[Debug] PatchMask` | 0xFFFF | Development: bit mask of the patches that may be applied (`PATCH_*` in `src/common.h`). |
+| `UnlockAll` | 0 | 1 = all tracks, events, episodes, game modes and vehicles selectable (the game's own switches; the profile is not changed). |
+| `BonusContent` | 0 | 1 = the PC version's cheat code extras: Expressway track, Cobretti SlipStream, retailer branded cars, Euro livery pack. |
+| `Boost` | 0 | 1 = X held gives player 1 extra speed along the car's heading. |
+| `BoostAcceleration` | 15 | Boost in m/s² (1–100). |
+| `BoostMaxSpeed` | 90 | No boost above this speed, m/s (10–200; 90 = 324 km/h). |
+| `BoostMotionBlur` | 3.0 | Motion blur multiplier at full boost (1–5). |
+| `PowerBarFill` | 0 | 1 = LS+RS (both sticks pressed) fills player 1's power play bar. |
+| `[Debug] PatchMask` | 0xFFFFFFFF | Development: bit mask of the patches that may be applied (`PATCH_*` in `src/common.h`). |
 
 ## Known limitations
 
@@ -170,8 +193,10 @@ How the fix avoids it:
   joystick (e.g. a wheel) is present, since those names are shared by all devices.
 * 60 fps: races, AI and physics were checked; not every power play and cutscene was. Set
   `FrameRate=30` if something looks off.
-* `RenderScale` other than `auto` patches code in the render target and HUD setup (nine places).
-  Leave it at `auto` if the game hangs after a few minutes with it set.
+* `RenderScale` other than `auto` patches code in the render target and HUD setup (nine places),
+  the only option that changes game code. Leave it at `auto` if the game hangs after a few
+  minutes with it set.
+* Boost and the power bar fill work for player 1 only.
 * `PopInFix=1` draws somewhat more per frame than the stock visibility lists allow.
 * Audio: the game forces FMOD to DirectSound in 5.1. The LFE channel stays silent and the pause
   menu is completely silent; both are the game's own mix.
@@ -191,7 +216,8 @@ part of this repository.
   DRM decrypt it at runtime).
 * `dec.sh` + `ghidra_scripts/` — headless Ghidra: decompile functions or ranges, list xrefs.
 * `dis.py`, `xref.py`, `strs.py`, `memgrep.py`, `mem.py`, `vmem.py` — quick disassembly, string,
-  memory and address space tools.
+  memory and address space tools; `objscan.py` finds live objects by vtable or pointers to an
+  address, `rtti.py` names the class of a vtable.
 * `padfeed.py` (with `TestFeed=1`) — scripted virtual pad; `test_race.sh` builds, installs and
   drives into a quick race; `ishot.sh` saves a frame straight from the Direct3D back buffer
   (works in exclusive fullscreen).
@@ -211,8 +237,13 @@ part of this repository.
 | `0x004DADE0` | `cLayer_PromptBar`: sets the PC key frames and captions |
 | `0x00CFA5E0` / `0x00CFA6E0` | JOY_AXIS_* / JOY_BUTTON_* name tables |
 | `0x00558880` | Main loop: measure frame time, accumulate ticks, `Update(ticks)`, `Render` |
+| `0x00D747F4`, `0x00D747F0`, `0x00D199D8` | Main loop accumulator, its tick counter (`Sleep(5)` at 5), "max ticks" tweakable (10) |
 | `0x00BA0C14` | 1/30, shared by the main loop, the AI steering controller `0x524AC0`, AI look-ahead grids and data conversions |
-| `0x00D389E0` | Tweakable "Sectors/Streaming Memory Pool MB" (57), read on level load (`0x7C654F`) |
+| `0x00BC0BC0` | `cAIPlayer` vtable slot of the AI player update `0x51A8B0` |
+| `0x00D389E0`, `0x00D389E4` | Tweakable "Sectors/Streaming Memory Pool MB" (57), read on level load (`0x7C654F`); its record (vtable `0xBB2498`, +4 variable) |
+| `0x00D66B28` | `cInGameResources`: +0xE4 `cGameLogic` (+0x18 player count, +0x1C players); player +0xE8 `cPowerBar` (+0x2C output, +8 power 0–100), +0xAC `cVehicleState` (+0x40 vehicles, +4 + i×4); vehicle +0x584 chassis `hkpRigidBody` (+0x100 forward, +0x110 position, +0x1A0 velocity) |
+| `0x00D6FC54`, `0x00D6FBA0`, `0x00D7D978`, `0x00D6F8F0` | UI/All Gamemodes / Episodes / Events / Vehicles Unlocked |
+| `0x00D6C49C` | 10 `PCcheat;…` switches, 8 bytes apart (Cobretti SlipStream, Expressway = Downtown B, branded cars, Euro livery) |
 | `0x00D8B368`, `0x00D82788`, `0x00D9AFCC` | Disable Powerplay Visibility / Sector Visibility / Visibility Map |
 | `0x00D8B384` | Powerplay draw distance records (name +0x10, distance +0x90) |
 | `0x00D66B24` | HUD; parameters at +0x20, powerplay icon scales +0x214/+0x218 |
